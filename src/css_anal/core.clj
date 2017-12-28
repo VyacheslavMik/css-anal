@@ -1,6 +1,7 @@
 (ns css-anal.core
   (:require [clojure.java.io :refer [file]]
             [clojure.string :as str]
+            [clojure.set :refer [difference]]
 
             [css-anal.css-props :refer [css-props]]
             [css-anal.html-tags :refer [tags]])
@@ -43,14 +44,6 @@
            (remove (complement coll?))
            (mapcat extract-hiccups)
            vec))))
-
-#_(defn html-tag? [k]
-  (when-let [tag (and (keyword? k)
-                      (some->> (name k)
-                               (re-matches #"^(\w+)\.?\#?.*")
-                               second
-                               keyword))]
-    (and (tags tag))))
 
 (defn html-tag? [k]
   (when (keyword? k)
@@ -117,12 +110,15 @@
 (defn html-tag-selector-class-names [selector]
   (mapv (fn [s] (keyword (str "." s))) (rest (str/split (name selector) #"\."))))
 
+(defn class-name-selector-class-names [selector]
+  (mapv (fn [s] (keyword (str "." s))) (remove str/blank? (str/split (name selector) #"\."))))
+
 (defn class-names [style]
   (if (css-style? style nil)
     (let [selectors (take-while selector? style)]
       (reduce (fn [acc selector]
                 (cond
-                  (css-class-name? selector) (conj acc selector)
+                  (css-class-name? selector) (vec (concat acc (class-name-selector-class-names selector)))
                   (html-tag? selector) (vec (concat acc (html-tag-selector-class-names selector)))
                   :else acc))
               [] selectors))
@@ -138,16 +134,22 @@
   (mapcat cljs-file-css-class-names (clojure-files path)))
 
 (defn get-all-classes [dir]
-  (mapcat #(-> %
-               read-seq-from-file
-               extract-hiccups
-               extract-classes
-               distinct) (clojure-files dir)))
+  (map keyword
+       (mapcat #(-> %
+                    read-seq-from-file
+                    extract-hiccups
+                    extract-classes
+                    distinct) (clojure-files dir))))
 
-(defn -main
-  "I don't do a whole lot ... yet."
-  [& args]
-  (println "Hello, World!"))
+(defn unused-classes [path]
+  (let [css-classes (set (project-css-class-names path))
+        html-classes (set (get-all-classes path))]
+    (difference css-classes html-classes)))
+
+(defn -main [& args]
+  (when (seq args)
+    (println
+    (unused-classes (first args)))))
 
 (comment
   (get-all-classes "/home/evgeny/css-anal/src/css_anal")
