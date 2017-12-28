@@ -1,6 +1,8 @@
-(ns css-anal-tmp.core
+(ns css-anal.core
   (:require [clojure.java.io :refer [file]]
-            [clojure.string :as str])
+            [clojure.string :as str]
+
+            [css-anal.css-props :refer [css-props]])
   (:gen-class))
 
 (defn clojure-file? [file]
@@ -37,6 +39,24 @@
            (remove symbol?)
            (mapcat extract-hiccups)))))
 
+(defn css-class-name? [k]
+  (and (keyword? k) (str/starts-with? (name k) ".")))
+
+(defn css-properties [m]
+  (every? (fn [[k _]]
+            (cond
+              (keyword? k) (css-props (name k))
+              (string? k) (css-props k)
+              :else false))
+          m))
+
+(defn css-class? [sexp]
+  (and (css-class-name? (first sexp))
+       ))
+
+;; (defn extract-garden-css [sexp]
+;;   (
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
@@ -45,6 +65,10 @@
 (comment
 
   (def sample (read-seq-from-file (second (clojure-files "/home/evgeny/css-anal/src/css_anal_tmp/"))))
+
+  (extract-hiccups sample)
+
+  (def sample (read-seq-from-file (second (clojure-files "/Users/vyacheslavmikushev/Work/css-anal"))))
 
   (extract-hiccups sample)
 
