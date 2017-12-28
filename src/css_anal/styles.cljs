@@ -1,4 +1,4 @@
-(ns css-anal-tmp.styles)
+(ns css-anal.styles)
 
 (defn switch []
   [:.switch

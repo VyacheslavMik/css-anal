@@ -1,4 +1,4 @@
-(ns css-anal-tmp.hiccup)
+(ns css-anal.hiccup)
 
 (defn my-form []
   [:form.auth
