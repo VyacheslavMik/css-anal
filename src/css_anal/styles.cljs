@@ -1,4 +1,7 @@
-(ns css-anal.styles)
+(ns css-anal.styles
+  (:require [garden.selectors :as s]))
+
+(println #js {"a" 1})
 
 (defn switch []
   [:.switch

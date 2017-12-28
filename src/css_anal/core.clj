@@ -16,8 +16,7 @@
   (let [d (file dir)]
     (filter clojure-file? (file-seq d))))
 
-(defn read-one
-  [r]
+(defn read-one [r]
   (try
     (read r)
     (catch java.lang.RuntimeException e
@@ -30,7 +29,9 @@
   [path]
   (with-open [r (java.io.PushbackReader. (clojure.java.io/reader path))]
     (binding [*read-eval* false]
-      (doall (take-while #(not= ::EOF %) (repeatedly #(read-one r)))))))
+      (try
+        (doall (take-while #(not= ::EOF %) (repeatedly #(read-one r))))
+        (catch Throwable t (println path t))))))
 
 (defn extract-hiccups [sexp]
   (when sexp
@@ -50,8 +51,11 @@
 (defn css-class-name? [k]
   (and (keyword? k) (str/starts-with? (name k) ".")))
 
+(defn css-pseudo-class? [k]
+  (and (keyword? k) (str/starts-with? (name k) "&")))
+
 (defn css-properties? [m]
-  (and m
+  (and (map? m)
        (every? (fn [[k _]]
                  (cond
                    (keyword? k) (css-props (name k))
@@ -59,16 +63,51 @@
                    :else false))
                m)))
 
+;; FIXME implement properly working function
+(defn garden-fn? [sexp aliases]
+  (list? sexp))
+
 (defn html-tag? [k]
   (and (keyword? k) (tags k)))
 
-(defn css-class? [sexp]
-  (and (or (css-class-name? (first sexp))
+(defn css-style? [sexp aliases]
+  (and (coll? sexp)
+       (or (css-class-name? (first sexp))
+           (css-pseudo-class? (first sexp))
+           (garden-fn? (first sexp) aliases)
            (html-tag? (first sexp)))
-       (css-properties? (second sexp))))
+       (or (css-properties? (second sexp))
+           (every? (fn [sexp] (css-style? sexp aliases)) (rest sexp)))))
 
-;; (defn extract-garden-css [sexp]
-;;   (
+(defn css-styles [sexp aliases]
+  (if (sequential? sexp)
+    (loop [[h & t] sexp
+           acc []]
+      (if h
+        (if (css-style? h aliases)
+          (recur t (conj acc h))
+          (recur t (vec (concat acc (css-styles h aliases)))))
+        acc))
+    []))
+
+(defn conj-css-class-name [acc style]
+  (if (css-class-name? (first style))
+    (conj acc (first style))
+    acc))
+
+(defn css-class-names [style]
+  (let [class-names (vec (mapcat css-class-names (if (css-properties? (second style))
+                                                   (-> style rest rest)
+                                                   (rest style))))]
+    (if (css-class-name? (first style))
+      (conj class-names (first style))
+      class-names)))
+
+(defn cljs-file-css-class-names [file]
+  (mapcat css-class-names (css-styles (read-seq-from-file file) nil)))
+
+(defn project-css-class-names [path]
+  (mapcat cljs-file-css-class-names (clojure-files path)))
 
 (defn -main
   "I don't do a whole lot ... yet."
