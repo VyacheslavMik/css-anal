@@ -1,8 +1,16 @@
-(ns css-anal.styles)
+(ns css-anal.styles
+  (:require [garden.selectors :as s]))
+
+(println #js {"a" 1})
 
 (defn switch []
   [:.switch
-   [:label {:cursor :pointer}]
+   [:label {:cursor :pointer}
+    [:&.invalid :&:focus.invalid {:bottom "0px"}]
+    [:a.button {:display :block}]
+    [:div {:display :flex}
+     [:span {:font-size "14px"
+             :letter-spacing "0.4px"}]]]
    [:.lever {:bottom "0px"
              :content "''"
              :cursor "pointer"

@@ -16,8 +16,7 @@
   (let [d (file dir)]
     (filter clojure-file? (file-seq d))))
 
-(defn read-one
-  [r]
+(defn read-one [r]
   (try
     (read r)
     (catch java.lang.RuntimeException e
@@ -29,7 +28,9 @@
   "Reads a sequence of top-level objects in file at path."
   [path]
   (let [s (slurp path)
-        s (str/replace s #"::\w+" "nil")]
+        s (-> s
+              (str/replace #"::\w+" "nil")
+              (str/replace #"#js" ""))]
     (with-open [r (java.io.PushbackReader. (java.io.StringReader. s))]
       (binding [*read-eval* false]
         (doall (take-while #(not= ::EOF %) (repeatedly #(read-one r))))))))
@@ -60,22 +61,81 @@
 (defn css-class-name? [k]
   (and (keyword? k) (str/starts-with? (name k) ".")))
 
+(defn css-pseudo-class? [k]
+  (and (keyword? k) (str/starts-with? (name k) "&")))
+
+(defn webkit-prop [k]
+  (str/starts-with? (name k) "-webkit"))
+
 (defn css-properties? [m]
-  (and m
+  (and (map? m)
        (every? (fn [[k _]]
-                 (cond
-                   (keyword? k) (css-props (name k))
-                   (string? k) (css-props k)
-                   :else false))
+                 (and (or (keyword? k) (string? k))
+                      (or (css-props (name k))
+                          (webkit-prop k))))
                m)))
 
-(defn css-class? [sexp]
-  (and (or (css-class-name? (first sexp))
-           (html-tag? (first sexp)))
-       (css-properties? (second sexp))))
+;; FIXME implement properly working function
+(defn garden-fn? [sexp aliases]
+  (list? sexp))
 
-;; (defn extract-garden-css [sexp]
-;;   (
+(defn html-tag? [k]
+  (when (keyword? k)
+    (let [k (keyword (first (str/split (name k) #"\.")))]
+      (tags k))))
+
+(defn selector? [k]
+  (or (css-class-name? k)
+      (css-pseudo-class? k)
+      (garden-fn? k nil)
+      (= k :*)
+      (html-tag? k)))
+
+(defn css-style? [sexp aliases]
+  (and (coll? sexp)
+       (selector? (first sexp))
+       (or (css-properties? (second sexp))
+           (every? (fn [sexp] (css-style? sexp aliases)) (rest sexp)))))
+
+(defn css-styles [sexp aliases]
+  (if (sequential? sexp)
+    (loop [[h & t] sexp
+           acc []]
+      (if h
+        (if (css-style? h aliases)
+          (recur t (conj acc h))
+          (recur t (vec (concat acc (css-styles h aliases)))))
+        acc))
+    []))
+
+(defn nested-styles [style]
+  (if (css-style? style nil)
+    (let [[f & r :as style] (drop-while selector? style)]
+      (if (css-properties? f) r style))
+    []))
+
+(defn html-tag-selector-class-names [selector]
+  (mapv (fn [s] (keyword (str "." s))) (rest (str/split (name selector) #"\."))))
+
+(defn class-names [style]
+  (if (css-style? style nil)
+    (let [selectors (take-while selector? style)]
+      (reduce (fn [acc selector]
+                (cond
+                  (css-class-name? selector) (conj acc selector)
+                  (html-tag? selector) (vec (concat acc (html-tag-selector-class-names selector)))
+                  :else acc))
+              [] selectors))
+    []))
+
+(defn css-class-names [style]
+  (vec (concat (class-names style) (vec (mapcat css-class-names (nested-styles style))))))
+
+(defn cljs-file-css-class-names [file]
+  (mapcat css-class-names (css-styles (read-seq-from-file file) nil)))
+
+(defn project-css-class-names [path]
+  (mapcat cljs-file-css-class-names (clojure-files path)))
 
 (defn get-all-classes [dir]
   (mapcat #(-> %
