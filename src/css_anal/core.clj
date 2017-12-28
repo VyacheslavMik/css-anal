@@ -20,7 +20,6 @@
   [r]
   (try
     (read r)
-    #_(read-string (str/replace r #"::\w+" "nil"))
     (catch java.lang.RuntimeException e
       (if (= "EOF while reading" (.getMessage e))
         ::EOF
@@ -31,18 +30,16 @@
   [path]
   (let [s (slurp path)
         s (str/replace s #"::\w+" "nil")]
-    (with-open [#_(r (java.io.PushbackReader. (clojure.java.io/reader path)))
-                r (java.io.PushbackReader. (java.io.StringReader. s))]
+    (with-open [r (java.io.PushbackReader. (java.io.StringReader. s))]
       (binding [*read-eval* false]
         (doall (take-while #(not= ::EOF %) (repeatedly #(read-one r))))))))
 
 (defn extract-hiccups [sexp]
-  (println sexp)
   (when sexp
     (if (and (vector? sexp) (keyword? (first sexp)))
       sexp
       (->> sexp
-           (remove symbol?)
+           (remove (complement coll?))
            (mapcat extract-hiccups)
            vec))))
 
@@ -57,7 +54,7 @@
 (defn extract-classes [hc]
   (cond
     (vector? hc) (mapcat extract-classes hc)
-    (html-tag? hc) (re-seq #"\.\w+" (name hc))
+    (html-tag? hc) (re-seq #"\.\w+-*_*\w+" (name hc))
     :else nil))
 
 (defn css-class-name? [k]
