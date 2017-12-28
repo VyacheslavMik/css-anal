@@ -2,7 +2,8 @@
   (:require [clojure.java.io :refer [file]]
             [clojure.string :as str]
 
-            [css-anal.css-props :refer [css-props]])
+            [css-anal.css-props :refer [css-props]]
+            [css-anal.html-tags :refer [tags]])
   (:gen-class))
 
 (defn clojure-file? [file]
@@ -49,17 +50,22 @@
 (defn css-class-name? [k]
   (and (keyword? k) (str/starts-with? (name k) ".")))
 
-(defn css-properties [m]
-  (every? (fn [[k _]]
-            (cond
-              (keyword? k) (css-props (name k))
-              (string? k) (css-props k)
-              :else false))
-          m))
+(defn css-properties? [m]
+  (and m
+       (every? (fn [[k _]]
+                 (cond
+                   (keyword? k) (css-props (name k))
+                   (string? k) (css-props k)
+                   :else false))
+               m)))
+
+(defn html-tag? [k]
+  (and (keyword? k) (tags k)))
 
 (defn css-class? [sexp]
-  (and (css-class-name? (first sexp))
-       ))
+  (and (or (css-class-name? (first sexp))
+           (html-tag? (first sexp)))
+       (css-properties? (second sexp))))
 
 ;; (defn extract-garden-css [sexp]
 ;;   (
