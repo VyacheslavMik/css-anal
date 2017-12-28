@@ -20,6 +20,7 @@
   [r]
   (try
     (read r)
+    #_(read-string (str/replace r #"::\w+" "nil"))
     (catch java.lang.RuntimeException e
       (if (= "EOF while reading" (.getMessage e))
         ::EOF
@@ -28,11 +29,15 @@
 (defn read-seq-from-file
   "Reads a sequence of top-level objects in file at path."
   [path]
-  (with-open [r (java.io.PushbackReader. (clojure.java.io/reader path))]
-    (binding [*read-eval* false]
-      (doall (take-while #(not= ::EOF %) (repeatedly #(read-one r)))))))
+  (let [s (slurp path)
+        s (str/replace s #"::\w+" "nil")]
+    (with-open [#_(r (java.io.PushbackReader. (clojure.java.io/reader path)))
+                r (java.io.PushbackReader. (java.io.StringReader. s))]
+      (binding [*read-eval* false]
+        (doall (take-while #(not= ::EOF %) (repeatedly #(read-one r))))))))
 
 (defn extract-hiccups [sexp]
+  (println sexp)
   (when sexp
     (if (and (vector? sexp) (keyword? (first sexp)))
       sexp
@@ -41,10 +46,18 @@
            (mapcat extract-hiccups)
            vec))))
 
+(defn html-tag? [k]
+  (when-let [tag (and (keyword? k)
+                      (some->> (name k)
+                               (re-matches #"^(\w+)\.?\#?.*")
+                               second
+                               keyword))]
+    (and (tags tag))))
+
 (defn extract-classes [hc]
   (cond
     (vector? hc) (mapcat extract-classes hc)
-    (keyword? hc) (re-seq #"\.\w+" (name hc))
+    (html-tag? hc) (re-seq #"\.\w+" (name hc))
     :else nil))
 
 (defn css-class-name? [k]
@@ -59,9 +72,6 @@
                    :else false))
                m)))
 
-(defn html-tag? [k]
-  (and (keyword? k) (tags k)))
-
 (defn css-class? [sexp]
   (and (or (css-class-name? (first sexp))
            (html-tag? (first sexp)))
@@ -70,12 +80,20 @@
 ;; (defn extract-garden-css [sexp]
 ;;   (
 
+(defn get-all-classes [dir]
+  (mapcat #(-> %
+               read-seq-from-file
+               extract-hiccups
+               extract-classes
+               distinct) (clojure-files dir)))
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
   (println "Hello, World!"))
 
 (comment
+  (get-all-classes "/home/evgeny/css-anal/src/css_anal")
 
   (def sample (read-seq-from-file (second (clojure-files "/home/evgeny/css-anal/src/css_anal_tmp/"))))
 
