@@ -35,7 +35,14 @@
       sexp
       (->> sexp
            (remove symbol?)
-           (mapcat extract-hiccups)))))
+           (mapcat extract-hiccups)
+           vec))))
+
+(defn extract-classes [hc]
+  (cond
+    (vector? hc) (mapcat extract-classes hc)
+    (keyword? hc) (re-seq #"\.\w+" (name hc))
+    :else nil))
 
 (defn -main
   "I don't do a whole lot ... yet."
@@ -46,6 +53,9 @@
 
   (def sample (read-seq-from-file (second (clojure-files "/home/evgeny/css-anal/src/css_anal_tmp/"))))
 
-  (extract-hiccups sample)
+  (-> sample
+      extract-hiccups
+      extract-classes
+      distinct)
 
   )
