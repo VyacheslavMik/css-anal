@@ -29,7 +29,23 @@
     (binding [*read-eval* false]
       (doall (take-while #(not= ::EOF %) (repeatedly #(read-one r)))))))
 
+(defn extract-hiccups [sexp]
+  (when sexp
+    (if (and (vector? sexp) (keyword? (first sexp)))
+      sexp
+      (->> sexp
+           (remove symbol?)
+           (mapcat extract-hiccups)))))
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
   (println "Hello, World!"))
+
+(comment
+
+  (def sample (read-seq-from-file (second (clojure-files "/home/evgeny/css-anal/src/css_anal_tmp/"))))
+
+  (extract-hiccups sample)
+
+  )
