@@ -7,7 +7,7 @@
   [:.switch
    [:label {:cursor :pointer}
     [:&.invalid :&:focus.invalid {:bottom "0px"}]
-    [:a.button {:display :block}]
+    [:a.button-test {:display :block}]
     [:div {:display :flex}
      [:span {:font-size "14px"
              :letter-spacing "0.4px"}]]]

@@ -44,13 +44,18 @@
            (mapcat extract-hiccups)
            vec))))
 
-(defn html-tag? [k]
+#_(defn html-tag? [k]
   (when-let [tag (and (keyword? k)
                       (some->> (name k)
                                (re-matches #"^(\w+)\.?\#?.*")
                                second
                                keyword))]
     (and (tags tag))))
+
+(defn html-tag? [k]
+  (when (keyword? k)
+    (let [k (keyword (first (str/split (name k) #"\.")))]
+      (tags k))))
 
 (defn extract-classes [hc]
   (cond
@@ -78,11 +83,6 @@
 ;; FIXME implement properly working function
 (defn garden-fn? [sexp aliases]
   (list? sexp))
-
-(defn html-tag? [k]
-  (when (keyword? k)
-    (let [k (keyword (first (str/split (name k) #"\.")))]
-      (tags k))))
 
 (defn selector? [k]
   (or (css-class-name? k)
